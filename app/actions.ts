@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { encrypt } from "@/lib/encryption";
 
 function extractChannelUsername(url: string): string {
   // Remove @ if present
@@ -45,37 +46,109 @@ export async function addChannelByUrl(
 
     console.log("[v0] [SERVER] Existing channel check:", existingChannel ? "found" : "not found");
 
-    if (existingChannel && timeRange === "update") {
-      console.log("[v0] [SERVER] Updating existing channel with new posts");
-      
-      const channelData = await fetchTelegramChannelData(
-        username,
-        timeRange
-      );
+    // Determine job type
+    const jobType = existingChannel && timeRange === "update" ? "update_channel" : "add_channel";
 
-      if (!channelData.success) {
-        console.log("[v0] [SERVER] Failed to fetch channel data:", channelData.error);
-        return { success: false, error: channelData.error };
-      }
+    if (existingChannel && timeRange !== "update") {
+      console.log("[v0] [SERVER] Channel exists, returning error");
+      return { success: false, error: "Channel already exists. Use 'Update' mode to fetch new posts." };
+    }
 
-      // Get existing post IDs to avoid duplicates
+    // Create background job
+    const { data: job, error: jobError } = await supabase
+      .from("jobs")
+      .insert({
+        job_type: jobType,
+        status: "pending",
+        payload: {
+          channelUrl,
+          username,
+          timeRange,
+          channelId: existingChannel?.id || null,
+        },
+      })
+      .select()
+      .single();
+
+    if (jobError) {
+      console.error("[v0] [SERVER] Error creating job:", jobError);
+      return { success: false, error: "Failed to create background job: " + jobError.message };
+    }
+
+    console.log("[v0] [SERVER] Created background job:", job.id);
+
+    revalidatePath("/");
+    return { 
+      success: true,
+      message: "Channel processing started. The data will be available shortly.",
+      jobId: job.id,
+    };
+  } catch (error) {
+    console.error("[v0] [SERVER] Error in addChannelByUrl:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error occurred" 
+    };
+  }
+}
+
+// Process a background job (called by cron job)
+export async function processJob(jobId: string) {
+  const supabase = await createClient();
+  
+  try {
+    // Get job
+    const { data: job, error: jobFetchError } = await supabase
+      .from("jobs")
+      .select("*")
+      .eq("id", jobId)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (jobFetchError || !job) {
+      console.error("[v0] [CRON] Job not found or already processed:", jobId);
+      return { success: false, error: "Job not found" };
+    }
+
+    // Update job status to processing
+    await supabase
+      .from("jobs")
+      .update({
+        status: "processing",
+        started_at: new Date().toISOString(),
+        attempts: (job.attempts || 0) + 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", jobId);
+
+    const { username, timeRange, channelId } = job.payload as {
+      username: string;
+      timeRange: "all" | "year" | "month" | "update";
+      channelId?: string;
+    };
+
+    // Import telegram client function
+    const { fetchChannelData } = await import("@/lib/telegram-client");
+    
+    // Fetch channel data using Telegram API
+    const channelData = await fetchChannelData(username, timeRange);
+
+    if (job.job_type === "update_channel" && channelId) {
+      // Update existing channel
       const { data: existingPosts } = await supabase
         .from("posts")
         .select("post_id")
-        .eq("channel_id", existingChannel.id);
+        .eq("channel_id", channelId);
 
       const existingPostIds = new Set(existingPosts?.map(p => p.post_id) || []);
 
-      // Filter out posts that already exist
-      const newPosts = channelData.data.posts.filter(
-        (post: any) => !existingPostIds.has(post.postId)
+      const newPosts = channelData.posts.filter(
+        (post) => !existingPostIds.has(post.postId)
       );
 
-      console.log("[v0] [SERVER] Found", newPosts.length, "new posts to add");
-
       if (newPosts.length > 0) {
-        const postsToInsert = newPosts.map((post: any) => ({
-          channel_id: existingChannel.id,
+        const postsToInsert = newPosts.map((post) => ({
+          channel_id: channelId,
           post_id: post.postId,
           channel_username: username,
           content: post.content,
@@ -95,144 +168,113 @@ export async function addChannelByUrl(
           .insert(postsToInsert);
 
         if (postsError) {
-          console.error("[v0] [SERVER] Error inserting posts:", postsError);
-          return { success: false, error: "Failed to add new posts: " + postsError.message };
+          throw new Error("Failed to insert posts: " + postsError.message);
         }
-
-        revalidatePath("/");
-        console.log("[v0] [SERVER] Successfully added", newPosts.length, "posts");
-        return { 
-          success: true, 
-          message: `Added ${newPosts.length} new post${newPosts.length === 1 ? '' : 's'}` 
-        };
-      } else {
-        return { 
-          success: true, 
-          message: "No new posts found. Channel is up to date." 
-        };
       }
-    }
 
-    if (existingChannel && timeRange !== "update") {
-      console.log("[v0] [SERVER] Channel exists, returning error");
-      return { success: false, error: "Channel already exists. Use 'Update' mode to fetch new posts." };
-    }
+      // Update job as completed
+      await supabase
+        .from("jobs")
+        .update({
+          status: "completed",
+          result: { postsAdded: newPosts.length },
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", jobId);
 
-    console.log("[v0] [SERVER] Adding new channel with real Telegram data");
-    
-    const channelData = await fetchTelegramChannelData(
-      username,
-      timeRange
-    );
+      revalidatePath("/");
+      return { success: true, postsAdded: newPosts.length };
+    } else {
+      // Add new channel
+      const { data: channel, error: channelError } = await supabase
+        .from("channels")
+        .insert({
+          channel_name: channelData.title,
+          channel_url: `https://t.me/${username}`,
+          channel_username: username,
+          subscribers_count: channelData.subscribers || 0,
+          description: channelData.description || null,
+          category: channelData.category || "Other",
+          language: channelData.language || "Unknown",
+        })
+        .select()
+        .single();
 
-    if (!channelData.success) {
-      console.log("[v0] [SERVER] Failed to fetch channel data:", channelData.error);
-      return { success: false, error: channelData.error };
-    }
-
-    console.log("[v0] [SERVER] Inserting channel into database");
-
-    const { data: channel, error: channelError } = await supabase
-      .from("channels")
-      .insert({
-        channel_name: channelData.data.title,
-        channel_url: `https://t.me/${username}`,
-        channel_username: username,
-        subscribers_count: channelData.data.subscribers || 0,
-        description: channelData.data.description || null,
-        category: channelData.data.category || "Other",
-        language: channelData.data.language || "Unknown",
-      })
-      .select()
-      .single();
-
-    if (channelError) {
-      console.error("[v0] [SERVER] Error adding channel:", channelError);
-      return { success: false, error: "Failed to add channel: " + channelError.message };
-    }
-
-    console.log("[v0] [SERVER] Channel added successfully, ID:", channel.id);
-
-    if (channelData.data.posts && channelData.data.posts.length > 0) {
-      console.log("[v0] [SERVER] Inserting", channelData.data.posts.length, "posts");
-      
-      const postsToInsert = channelData.data.posts.map((post: any) => ({
-        channel_id: channel.id,
-        post_id: post.postId,
-        channel_username: username,
-        content: post.content,
-        post_url: post.postUrl,
-        views_count: post.viewsCount || 0,
-        reactions_count: post.reactionsCount || 0,
-        comments_count: post.commentsCount || 0,
-        forwards_count: post.forwardsCount || 0,
-        engagement_rate: post.engagementRate,
-        published_at: post.publishedAt,
-        has_media: post.hasMedia || false,
-        media_type: post.mediaType,
-      }));
-
-      const { error: postsError } = await supabase
-        .from("posts")
-        .insert(postsToInsert);
-
-      if (postsError) {
-        console.error("[v0] [SERVER] Error inserting posts:", postsError);
-        // Don't fail the whole operation if posts fail
-      } else {
-        console.log("[v0] [SERVER] Posts inserted successfully");
+      if (channelError) {
+        throw new Error("Failed to add channel: " + channelError.message);
       }
-    }
 
-    revalidatePath("/");
-    console.log("[v0] [SERVER] Operation completed successfully");
-    return { 
-      success: true,
-      message: `Added channel with ${channelData.data.posts.length} post${channelData.data.posts.length === 1 ? '' : 's'}`
-    };
+      // Insert posts
+      if (channelData.posts && channelData.posts.length > 0) {
+        const postsToInsert = channelData.posts.map((post) => ({
+          channel_id: channel.id,
+          post_id: post.postId,
+          channel_username: username,
+          content: post.content,
+          post_url: post.postUrl,
+          views_count: post.viewsCount || 0,
+          reactions_count: post.reactionsCount || 0,
+          comments_count: post.commentsCount || 0,
+          forwards_count: post.forwardsCount || 0,
+          engagement_rate: post.engagementRate,
+          published_at: post.publishedAt,
+          has_media: post.hasMedia || false,
+          media_type: post.mediaType,
+        }));
+
+        const { error: postsError } = await supabase
+          .from("posts")
+          .insert(postsToInsert);
+
+        if (postsError) {
+          console.error("[v0] [CRON] Error inserting posts:", postsError);
+          // Don't fail the whole operation
+        }
+      }
+
+      // Update job as completed
+      await supabase
+        .from("jobs")
+        .update({
+          status: "completed",
+          result: { channelId: channel.id, postsAdded: channelData.posts.length },
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", jobId);
+
+      revalidatePath("/");
+      return { success: true, channelId: channel.id, postsAdded: channelData.posts.length };
+    }
   } catch (error) {
-    console.error("[v0] [SERVER] Error in addChannelByUrl:", error);
+    console.error("[v0] [CRON] Error processing job:", error);
+    
+    // Update job as failed
+    const supabase = await createClient();
+    const { data: job } = await supabase
+      .from("jobs")
+      .select("attempts, max_attempts")
+      .eq("id", jobId)
+      .maybeSingle();
+
+    const attempts = (job?.attempts || 0) + 1;
+    const maxAttempts = job?.max_attempts || 3;
+    const status = attempts >= maxAttempts ? "failed" : "pending";
+
+    await supabase
+      .from("jobs")
+      .update({
+        status,
+        error_message: error instanceof Error ? error.message : "Unknown error",
+        attempts,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", jobId);
+
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Unknown error occurred" 
-    };
-  }
-}
-
-async function fetchTelegramChannelData(
-  username: string,
-  timeRange: "all" | "year" | "month" | "update" = "month"
-) {
-  try {
-    console.log("[v0] [SERVER] Fetching real Telegram data for channel:", username, "with time range:", timeRange);
-    
-    const response = await fetch(`/api/telegram/channel`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ username, timeRange }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: `HTTP ${response.status}` }));
-      console.error("[v0] [SERVER] API response not OK:", response.status, errorData);
-      throw new Error(errorData.message || 'Failed to fetch channel data');
-    }
-
-    const channelInfo = await response.json();
-    
-    console.log("[v0] [SERVER] Received", channelInfo.posts?.length || 0, "real posts from Telegram API");
-
-    return {
-      success: true,
-      data: channelInfo,
-    };
-  } catch (error) {
-    console.error("[v0] [SERVER] Error fetching Telegram data:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Failed to connect to Telegram API" 
     };
   }
 }
@@ -241,12 +283,16 @@ export async function saveApiSettings(apiId: string, apiHash: string) {
   const supabase = await createClient();
 
   try {
+    // Encrypt the credentials before storing
+    const encryptedApiId = encrypt(apiId);
+    const encryptedApiHash = encrypt(apiHash);
+
     const { error } = await supabase
       .from("api_settings")
       .upsert({
         id: 1,
-        api_id: apiId,
-        api_hash: apiHash,
+        api_id: encryptedApiId,
+        api_hash: encryptedApiHash,
         updated_at: new Date().toISOString(),
       });
 
@@ -266,24 +312,17 @@ export async function saveApiSettings(apiId: string, apiHash: string) {
 }
 
 export async function testApiConnection() {
-  const supabase = await createClient();
-
   try {
-    const { data: settings } = await supabase
-      .from("api_settings")
-      .select("*")
-      .maybeSingle();
-
-    if (!settings || !settings.api_id || !settings.api_hash) {
-      return { 
-        success: false, 
-        error: "No API credentials found. Please save your settings first." 
-      };
-    }
-
-    const result = await fetchTelegramChannelData("telegram", "month");
-
-    return result;
+    const { getTelegramClient } = await import("@/lib/telegram-client");
+    const client = await getTelegramClient();
+    
+    // Try to get "me" to verify connection
+    const me = await client.getMe();
+    
+    return {
+      success: true,
+      message: `Connected as ${me.firstName || 'User'} (${me.id})`,
+    };
   } catch (error) {
     console.error("Error testing API connection:", error);
     return { 
