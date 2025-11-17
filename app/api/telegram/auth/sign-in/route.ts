@@ -71,9 +71,7 @@ export async function POST(request: NextRequest) {
 
         // Handle 2FA - use the client's built-in method which handles SRP automatically
         try {
-          await client.signInUserWithPassword({
-            password: () => Promise.resolve(password),
-          });
+          await client.signInWithPassword(phoneNumber, password);
         } catch (passwordError: any) {
           await client.disconnect();
           throw new Error(
