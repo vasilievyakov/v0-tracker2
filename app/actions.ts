@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
+// import { revalidatePath } from "next/cache"; // Not available in Next.js 12
 import { encrypt } from "@/lib/encryption";
 
 function extractChannelUsername(url: string): string {
@@ -60,7 +60,7 @@ export async function addChannelByUrl(
       jobType: existingChannel && timeRange === "update" ? "update_channel" : "add_channel"
     });
 
-    revalidatePath("/");
+    // revalidatePath("/"); // Not available in Next.js 12
     return result;
   } catch (error) {
     console.error("[v0] [SERVER] Error in addChannelByUrl:", error);
@@ -279,7 +279,7 @@ export async function addChannel(data: {
     return { success: false, error: error.message };
   }
 
-  revalidatePath("/");
+  // revalidatePath("/"); // Not available in Next.js 12
   return { success: true };
 }
 
@@ -296,6 +296,6 @@ export async function deleteChannel(channelId: string) {
     return { success: false, error: error.message };
   }
 
-  revalidatePath("/");
+  // revalidatePath("/"); // Not available in Next.js 12
   return { success: true };
 }
