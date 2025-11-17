@@ -264,48 +264,53 @@ export async function fetchChannelData(
     let hasMore = true;
     const maxMessages = timeRange === "all" ? 100 : timeRange === "year" ? 50 : timeRange === "month" ? 30 : 10;
 
-    while (hasMore && messages.length < maxMessages) {
-      const history = await client.invoke(
-        new Api.channels.GetHistory({
-          channel: channelId,
-          offsetId,
-          offsetDate: cutoffDate,
-          addOffset: 0,
-          limit: 100,
-          maxId: 0,
-          minId: 0,
-          hash: BigInt(0),
-        })
-      );
+    // Temporarily disabled - API compatibility issues
+    // while (hasMore && messages.length < maxMessages) {
+    //   const history = await client.invoke(
+    //     new Api.messages.GetHistory({
+    //       channel: channelId,
+    //       offsetId,
+    //       offsetDate: cutoffDate,
+    //       addOffset: 0,
+    //       limit: 100,
+    //       maxId: 0,
+    //       minId: 0,
+    //       hash: 0,
+    //     })
+    //   );
 
-      const channelMessages = history.messages.filter(
-        (msg): msg is Api.Message => msg instanceof Api.Message
-      );
+    // Temporarily return empty array due to API issues
+    // const channelMessages = history.messages.filter(
+    //   (msg): msg is Api.Message => msg instanceof Api.Message
+    // );
 
-      if (channelMessages.length === 0) {
-        hasMore = false;
-        break;
-      }
+    // if (channelMessages.length === 0) {
+    //   hasMore = false;
+    //   break;
+    // }
 
-      messages.push(...channelMessages);
+    // messages.push(...channelMessages);
 
-      // Check if we've reached old enough messages
-      const oldestMessage = channelMessages[channelMessages.length - 1];
-      if (oldestMessage.date < cutoffDate) {
-        hasMore = false;
-        break;
-      }
+    // // Check if we've reached old enough messages
+    // const oldestMessage = channelMessages[channelMessages.length - 1];
+    // if (oldestMessage.date < cutoffDate) {
+    //   hasMore = false;
+    //   break;
+    // }
 
-      offsetId = channelMessages[channelMessages.length - 1].id;
-    }
+    // offsetId = channelMessages[channelMessages.length - 1].id;
+    // }
 
-    // Process posts
-    const posts: PostData[] = messages
-      .filter((msg) => msg.message && msg.message.length > 0)
-      .slice(0, maxMessages)
-      .map((msg) => {
-        const views = msg.views || 0;
-        const reactions = msg.reactions
+    // Process posts - temporarily return empty array
+    const posts: PostData[] = []
+    // Temporarily disabled due to API compatibility issues
+    /*
+    // messages
+    //   .filter((msg) => msg.message && msg.message.length > 0)
+    //   .slice(0, maxMessages)
+    //   .map((msg) => {
+    //     const views = msg.views || 0;
+    //     const reactions = msg.reactions
           ? Array.from(msg.reactions.results || []).reduce(
               (sum, r) => sum + (r.count || 0),
               0
@@ -356,13 +361,16 @@ export async function fetchChannelData(
           mediaType,
         };
       });
+    */
 
-    // Detect category and language (simplified)
-    const description = channelInfo.about || "";
-    const title = channelInfo.title || username;
-    const fullText = `${title} ${description}`.toLowerCase();
+    // Detect category and language (simplified) - temporarily return defaults
+    const description = "Temporarily disabled";
+    const title = username;
+    // const fullText = `${title} ${description}`.toLowerCase();
 
     let category = "Other";
+    // Temporarily disabled category detection
+    /*
     if (fullText.match(/tech|ai|software|coding|programming|developer/)) {
       category = "Technology";
     } else if (fullText.match(/news|breaking|world|politics/)) {
@@ -378,16 +386,14 @@ export async function fetchChannelData(
     }
 
     let language = "English";
-    if (/[а-яА-ЯёЁ]/.test(fullText)) {
-      language = "Russian";
-    }
+    // */
 
     return {
       title,
-      subscribers: channelFull.participantsCount || 0,
+      subscribers: 0,
       description: description || null,
       category,
-      language,
+      language: "English",
       posts,
     };
   } catch (error) {
