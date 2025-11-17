@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/encryption";
 import { logger } from "@/lib/logger";
 
+// Explicitly use Node.js runtime for Telegram client operations
+export const runtime = 'nodejs'
+
 export async function POST(request: NextRequest) {
   try {
     const { phoneNumber } = await request.json();

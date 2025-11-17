@@ -1,19 +1,23 @@
 import { NextResponse } from 'next/server'
 import pg from 'pg'
+import { logger } from '@/lib/logger'
+
+// Explicitly use Node.js runtime for database operations
+export const runtime = 'nodejs'
 
 export async function POST() {
   try {
-    console.log('[v0] Starting database setup...')
+    logger.info('[v0] Starting database setup...')
     
     const client = new pg.Client({
       connectionString: process.env.POSTGRES_URL
     })
 
     await client.connect()
-    console.log('[v0] Connected to database')
+    logger.info('[v0] Connected to database')
 
     // Create tables SQL
-    console.log('[v0] Creating tables...')
+    logger.info('[v0] Creating tables...')
     const createTablesSQL = `
       -- Drop existing channels table if it exists (from old structure)
       drop table if exists public.channels cascade;
@@ -107,10 +111,10 @@ export async function POST() {
     `
     
     await client.query(createTablesSQL)
-    console.log('[v0] Tables created successfully')
+    logger.info('[v0] Tables created successfully')
 
     // Seed data SQL
-    console.log('[v0] Seeding sample data...')
+    logger.info('[v0] Seeding sample data...')
     const seedDataSQL = `
       -- Insert sample channels
       insert into public.channels (channel_name, channel_url, channel_username, subscribers_count, category, language, description) values
@@ -189,10 +193,10 @@ export async function POST() {
     `
     
     await client.query(seedDataSQL)
-    console.log('[v0] Sample data seeded successfully')
+    logger.info('[v0] Sample data seeded successfully')
 
     await client.end()
-    console.log('[v0] Database setup completed!')
+    logger.info('[v0] Database setup completed!')
     
     return NextResponse.json({ 
       success: true, 
@@ -200,7 +204,7 @@ export async function POST() {
     })
 
   } catch (error: any) {
-    console.error('[v0] Database setup error:', error)
+    logger.error({ err: error }, '[v0] Database setup error')
     return NextResponse.json({ 
       success: false, 
       error: error.message 
