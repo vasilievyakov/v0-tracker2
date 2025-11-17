@@ -28,8 +28,7 @@
     "telegram": "2.26.22",
     "zod": "3.25.76",
     "pino": "^8.21.0",
-    "pino-pretty": "^10.2.0",
-    "pino-http": "^9.0.0"
+    "pino-pretty": "^10.2.0"
   },
   "devDependencies": {
     "@types/node": "^22",
