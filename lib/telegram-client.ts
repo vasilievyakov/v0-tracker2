@@ -2,6 +2,7 @@ import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { Api } from "telegram/tl";
 import { createClient } from "@/lib/supabase/server";
+import { logger } from "./logger";
 import { encrypt, decrypt } from "@/lib/encryption";
 
 let clientInstance: TelegramClient | null = null;
@@ -76,7 +77,7 @@ async function getSessionString(): Promise<string | null> {
   try {
     return decrypt(session.session_string);
   } catch (error) {
-    console.error("Failed to decrypt session:", error);
+    logger.error({ err: error }, "Failed to decrypt session");
     return null;
   }
 }
@@ -143,7 +144,7 @@ export async function getTelegramClient(): Promise<TelegramClient> {
     clientInstance = client;
     return client;
   } catch (error) {
-    console.error("Error initializing Telegram client:", error);
+    logger.error({ err: error }, "Error initializing Telegram client");
     throw error;
   } finally {
     isConnecting = false;
@@ -397,7 +398,7 @@ export async function fetchChannelData(
       posts,
     };
   } catch (error) {
-    console.error("Error fetching channel data:", error);
+    logger.error({ err: error }, "Error fetching channel data");
     throw error;
   }
 }

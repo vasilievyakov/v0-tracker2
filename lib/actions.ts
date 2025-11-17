@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 // import { revalidatePath } from "next/cache"; // Not available in Next.js 12
 import { encrypt } from "@/lib/encryption";
 
@@ -26,15 +27,15 @@ export async function addChannelByUrl(
   const supabase = await createClient();
 
   try {
-    console.log("[v0] [SERVER] Starting addChannelByUrl for:", channelUrl, "timeRange:", timeRange);
+    logger.info({ channelUrl, timeRange }, "[v0] Starting addChannelByUrl");
 
     // Extract username from URL
     const username = extractChannelUsername(channelUrl);
 
-    console.log("[v0] [SERVER] Extracted username:", username);
+    logger.debug({ username }, "[v0] Extracted username");
 
     if (!username) {
-      console.log("[v0] [SERVER] Invalid username extracted");
+      logger.warn("[v0] Invalid username extracted");
       return { success: false, error: "Invalid channel URL format" };
     }
 
@@ -44,11 +45,11 @@ export async function addChannelByUrl(
       .eq("channel_username", username)
       .maybeSingle();
 
-    console.log("[v0] [SERVER] Existing channel check:", existingChannel ? "found" : "not found");
+    logger.debug({ existing: !!existingChannel }, "[v0] Existing channel check");
 
     // Check if channel exists and we're not updating
     if (existingChannel && timeRange !== "update") {
-      console.log("[v0] [SERVER] Channel exists, returning error");
+      logger.warn("[v0] Channel exists, returning error");
       return { success: false, error: "Channel already exists. Use 'Update' mode to fetch new posts." };
     }
 
@@ -63,7 +64,7 @@ export async function addChannelByUrl(
     // revalidatePath("/"); // Not available in Next.js 12
     return result;
   } catch (error) {
-    console.error("[v0] [SERVER] Error in addChannelByUrl:", error);
+    logger.error({ err: error }, "[v0] Error in addChannelByUrl");
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred"
@@ -175,7 +176,7 @@ async function processChannelDirectly(params: {
           .insert(postsToInsert);
 
         if (postsError) {
-          console.error("[v0] [SYNC] Error inserting posts:", postsError);
+          logger.error({ err: postsError }, "[v0] Error inserting posts");
           // Don't fail the whole operation
         }
       }
@@ -188,7 +189,7 @@ async function processChannelDirectly(params: {
       };
     }
   } catch (error) {
-    console.error("[v0] [SYNC] Error processing channel:", error);
+    logger.error({ err: error }, "[v0] Error processing channel");
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred"
@@ -215,13 +216,13 @@ export async function saveApiSettings(apiId: string, apiHash: string) {
       });
 
     if (error) {
-      console.error("Error saving API settings:", error);
+      logger.error({ err: error }, "Error saving API settings");
       return { success: false, error: error.message };
     }
 
     return { success: true };
   } catch (error) {
-    console.error("Error in saveApiSettings:", error);
+    logger.error({ err: error }, "Error in saveApiSettings");
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Unknown error occurred" 
@@ -242,7 +243,7 @@ export async function testApiConnection() {
       message: `Connected as ${me.firstName || 'User'} (${me.id})`,
     };
   } catch (error) {
-    console.error("Error testing API connection:", error);
+    logger.error({ err: error }, "Error testing API connection");
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Connection test failed" 
@@ -275,7 +276,7 @@ export async function addChannel(data: {
   });
 
   if (error) {
-    console.error("Error adding channel:", error);
+    logger.error({ err: error }, "Error adding channel");
     return { success: false, error: error.message };
   }
 
@@ -292,7 +293,7 @@ export async function deleteChannel(channelId: string) {
     .eq("id", channelId);
 
   if (error) {
-    console.error("Error deleting channel:", error);
+    logger.error({ err: error }, "Error deleting channel");
     return { success: false, error: error.message };
   }
 

@@ -5,37 +5,37 @@
   "devFiles": [],
   "ampDevFiles": [],
   "lowPriorityFiles": [
-    "static/kd99QkJVYI1MO4jE1KfCF/_buildManifest.js",
-    "static/kd99QkJVYI1MO4jE1KfCF/_ssgManifest.js"
+    "static/oi4-ivN6mFs79Db-y-WhG/_buildManifest.js",
+    "static/oi4-ivN6mFs79Db-y-WhG/_ssgManifest.js"
   ],
   "rootMainFiles": [],
   "pages": {
     "/": [
-      "static/chunks/webpack-6a53bc58b2f549ee.js",
-      "static/chunks/framework-5f4595e5518b5600.js",
-      "static/chunks/main-d1eb1cbf1c7ea08b.js",
+      "static/chunks/webpack-60f235056e001b45.js",
+      "static/chunks/framework-b759e809ec16812b.js",
+      "static/chunks/main-1312a74fed987a6a.js",
       "static/chunks/pages/index-f34e4882b8e4d02f.js"
     ],
     "/_app": [
-      "static/chunks/webpack-6a53bc58b2f549ee.js",
-      "static/chunks/framework-5f4595e5518b5600.js",
-      "static/chunks/main-d1eb1cbf1c7ea08b.js",
+      "static/chunks/webpack-60f235056e001b45.js",
+      "static/chunks/framework-b759e809ec16812b.js",
+      "static/chunks/main-1312a74fed987a6a.js",
       "static/css/fc6790fcf8066289.css",
       "static/chunks/pages/_app-1887cd0ca8be357d.js"
     ],
     "/_error": [
-      "static/chunks/webpack-6a53bc58b2f549ee.js",
-      "static/chunks/framework-5f4595e5518b5600.js",
-      "static/chunks/main-d1eb1cbf1c7ea08b.js",
+      "static/chunks/webpack-60f235056e001b45.js",
+      "static/chunks/framework-b759e809ec16812b.js",
+      "static/chunks/main-1312a74fed987a6a.js",
       "static/chunks/pages/_error-a4ba2246ff8fb532.js"
     ],
     "/settings": [
-      "static/chunks/webpack-6a53bc58b2f549ee.js",
-      "static/chunks/framework-5f4595e5518b5600.js",
-      "static/chunks/main-d1eb1cbf1c7ea08b.js",
+      "static/chunks/webpack-60f235056e001b45.js",
+      "static/chunks/framework-b759e809ec16812b.js",
+      "static/chunks/main-1312a74fed987a6a.js",
       "static/chunks/fec483df-16f11b1f92c67865.js",
       "static/chunks/525-538d880c6b8ced43.js",
-      "static/chunks/pages/settings-af7c172ae5a37f75.js"
+      "static/chunks/pages/settings-aeb17feb80c03c37.js"
     ]
   },
   "ampFirstPages": []

@@ -4,6 +4,7 @@ import { StringSession } from "telegram/sessions";
 import { Api } from "telegram/tl";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt, encrypt } from "@/lib/encryption";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   try {
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
       message: "Successfully authenticated",
     });
   } catch (error) {
-    console.error("Error signing in:", error);
+    logger.error({ err: error }, "Error signing in");
     return NextResponse.json(
       {
         error:

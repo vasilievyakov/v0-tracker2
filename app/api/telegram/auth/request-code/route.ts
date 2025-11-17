@@ -3,6 +3,7 @@ import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/encryption";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   try {
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
       phoneCodeHash: result.phoneCodeHash,
     });
   } catch (error) {
-    console.error("Error requesting code:", error);
+    logger.error({ err: error }, "Error requesting code");
     return NextResponse.json(
       {
         error:
