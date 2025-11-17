@@ -1,0 +1,8 @@
+# Vercel ignore file - files that should not be deployed
+node_modules
+.next
+.git
+*.log
+.env.local
+.env*.local
+
