@@ -1,0 +1,10 @@
+{
+  "/_app": "pages/_app.js",
+  "/_error": "pages/_error.js",
+  "/api/setup-database": "pages/api/setup-database.js",
+  "/api/telegram/auth/request-code": "pages/api/telegram/auth/request-code.js",
+  "/api/telegram/auth/sign-in": "pages/api/telegram/auth/sign-in.js",
+  "/": "pages/index.js",
+  "/settings": "pages/settings.js",
+  "/_document": "pages/_document.js"
+}

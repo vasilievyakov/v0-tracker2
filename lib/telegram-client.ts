@@ -189,17 +189,9 @@ export async function initializeTelegramAuth(
     } catch (error: any) {
       // If 2FA is required
       if (error.errorMessage === "SESSION_PASSWORD_NEEDED" && passwordCallback) {
-        const password = await passwordCallback();
-        await client.invoke(
-          new Api.account.GetPassword()
-        );
-        const { srpId, currentAlgo, srpB } = await client.invoke(
-          new Api.account.GetPassword()
-        );
-        
-        // Note: Full 2FA implementation requires SRP calculation
-        // This is a simplified version - you may need to use a library like 'telegram/Password'
-        throw new Error("2FA password verification requires additional implementation");
+        // 2FA implementation is complex and requires SRP calculation
+        // For now, throw an error indicating 2FA is not supported
+        throw new Error("2FA password verification is not implemented. Please disable 2FA for this account.");
       }
       throw error;
     }

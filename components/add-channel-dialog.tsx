@@ -14,8 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus } from 'lucide-react';
-import { addChannelByUrl } from "@/app/actions";
-import { useRouter } from 'next/navigation';
+import { addChannelByUrl } from "../lib/actions";
+import { useRouter } from 'next/router';
 import { useToast } from "@/hooks/use-toast";
 import {
   Select,
@@ -49,11 +49,11 @@ export function AddChannelDialog() {
       if (result.success) {
         toast({
           title: "Channel added",
-          description: result.message || "The channel and its posts have been successfully added.",
+          description: "message" in result ? result.message : "The channel and its posts have been successfully added.",
         });
         setOpen(false);
         e.currentTarget.reset();
-        router.refresh();
+        router.reload();
       } else {
         console.error("[v0] [CLIENT] Error from server:", result.error);
         toast({

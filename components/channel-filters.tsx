@@ -10,27 +10,27 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useTransition } from "react";
+import { useRouter } from 'next/router';
+import { useCallback } from "react";
 
 export function ChannelFilters() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [isPending, startTransition] = useTransition();
+  const query = router.query;
 
   const updateFilter = useCallback(
     (key: string, value: string) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams();
+      Object.entries(query).forEach(([k, v]) => {
+        if (v) params.set(k, v as string);
+      });
       if (value && value !== "all") {
         params.set(key, value);
       } else {
         params.delete(key);
       }
-      startTransition(() => {
-        router.push(`/?${params.toString()}`);
-      });
+      router.push(`/?${params.toString()}`);
     },
-    [router, searchParams]
+    [router, query]
   );
 
   return (
@@ -43,14 +43,14 @@ export function ChannelFilters() {
             <Input
               placeholder="Search channels..."
               className="pl-9"
-              defaultValue={searchParams.get("search") || ""}
+              defaultValue={typeof query.search === 'string' ? query.search : ""}
               onChange={(e) => updateFilter("search", e.target.value)}
             />
           </div>
 
           {/* Category Filter */}
           <Select
-            defaultValue={searchParams.get("category") || "all"}
+            defaultValue={typeof query.category === 'string' ? query.category : "all"}
             onValueChange={(value) => updateFilter("category", value)}
           >
             <SelectTrigger>
@@ -68,7 +68,7 @@ export function ChannelFilters() {
 
           {/* Language Filter */}
           <Select
-            defaultValue={searchParams.get("language") || "all"}
+            defaultValue={typeof query.language === 'string' ? query.language : "all"}
             onValueChange={(value) => updateFilter("language", value)}
           >
             <SelectTrigger>
@@ -84,7 +84,7 @@ export function ChannelFilters() {
 
           {/* Subscribers Range */}
           <Select
-            defaultValue={searchParams.get("minSubscribers") || "all"}
+            defaultValue={typeof query.minSubscribers === 'string' ? query.minSubscribers : "all"}
             onValueChange={(value) => updateFilter("minSubscribers", value)}
           >
             <SelectTrigger>

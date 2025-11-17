@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from "@/components/ui/badge"; // Not compatible with React 17
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Download, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from "date-fns";
@@ -112,7 +112,7 @@ export function ChannelsTable({ channels }: ChannelsTableProps) {
                       </TableCell>
                       <TableCell>
                         {channel.category && (
-                          <Badge variant="secondary">{channel.category}</Badge>
+                          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800">{channel.category}</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -149,18 +149,17 @@ export function ChannelsTable({ channels }: ChannelsTableProps) {
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {channel.tags?.slice(0, 2).map((tag) => (
-                            <Badge
+                            <span
                               key={tag}
-                              variant="outline"
-                              className="text-xs"
+                              className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border border-gray-300 bg-white text-gray-700"
                             >
                               {tag}
-                            </Badge>
+                            </span>
                           ))}
                           {channel.tags && channel.tags.length > 2 && (
-                            <Badge variant="outline" className="text-xs">
+                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border border-gray-300 bg-white text-gray-700">
                               +{channel.tags.length - 2}
-                            </Badge>
+                            </span>
                           )}
                         </div>
                       </TableCell>

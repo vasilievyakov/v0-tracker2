@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from "@/components/ui/badge"; // Not compatible with React 17
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Download, Eye, Heart, MessageCircle, Share2, ImageIcon, Video, FileText } from 'lucide-react';
 import { formatDistanceToNow } from "date-fns";
@@ -116,9 +116,9 @@ export function PostsTable({ posts }: PostsTableProps) {
                           {post.channel?.channel_name || post.channel_username}
                         </div>
                         {post.channel?.category && (
-                          <Badge variant="secondary" className="mt-1 text-xs">
+                          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800 mt-1">
                             {post.channel.category}
-                          </Badge>
+                          </span>
                         )}
                       </div>
                     </TableCell>

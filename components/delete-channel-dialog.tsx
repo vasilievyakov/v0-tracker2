@@ -11,8 +11,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { deleteChannel } from "@/app/actions";
-import { useRouter } from 'next/navigation';
+import { deleteChannel } from "@/lib/actions";
+import { useRouter } from 'next/router';
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 
@@ -44,7 +44,7 @@ export function DeleteChannelDialog({
           description: "The channel has been successfully deleted.",
         });
         onOpenChange(false);
-        router.refresh();
+        router.reload();
       } else {
         toast({
           title: "Error",

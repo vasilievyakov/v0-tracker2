@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/router';
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,30 +21,30 @@ interface PostFiltersProps {
 
 export function PostFilters({ channels }: PostFiltersProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const query = router.query;
 
-  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [search, setSearch] = useState(typeof query.search === 'string' ? query.search : "");
   const [channelUsername, setChannelUsername] = useState(
-    searchParams.get("channelUsername") || "all"
+    typeof query.channelUsername === 'string' ? query.channelUsername : "all"
   );
   const [minViews, setMinViews] = useState(
-    searchParams.get("minViews") || ""
+    typeof query.minViews === 'string' ? query.minViews : ""
   );
   const [minEngagement, setMinEngagement] = useState(
-    searchParams.get("minEngagement") || ""
+    typeof query.minEngagement === 'string' ? query.minEngagement : ""
   );
   const [hasMedia, setHasMedia] = useState(
-    searchParams.get("hasMedia") || "all"
+    typeof query.hasMedia === 'string' ? query.hasMedia : "all"
   );
 
   const applyFilters = () => {
     const params = new URLSearchParams();
 
-    if (search) params.set("search", search);
-    if (channelUsername && channelUsername !== "all") params.set("channelUsername", channelUsername);
-    if (minViews) params.set("minViews", minViews);
-    if (minEngagement) params.set("minEngagement", minEngagement);
-    if (hasMedia && hasMedia !== "all") params.set("hasMedia", hasMedia);
+    if (typeof search === 'string' && search) params.set("search", search);
+    if (typeof channelUsername === 'string' && channelUsername && channelUsername !== "all") params.set("channelUsername", channelUsername);
+    if (typeof minViews === 'string' && minViews) params.set("minViews", minViews);
+    if (typeof minEngagement === 'string' && minEngagement) params.set("minEngagement", minEngagement);
+    if (typeof hasMedia === 'string' && hasMedia && hasMedia !== "all") params.set("hasMedia", hasMedia);
 
     router.push(`/?${params.toString()}`);
   };

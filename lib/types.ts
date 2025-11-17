@@ -7,6 +7,9 @@ export interface Channel {
   category: string | null;
   language: string | null;
   description: string | null;
+  last_post_date: string | null;
+  engagement_rate: number | null;
+  tags: string[] | null;
   created_at: string;
   updated_at: string;
 }
