@@ -67,7 +67,21 @@ export function decrypt(encryptedData: string): string {
     return decrypted.toString('utf8');
   } catch (error) {
     console.error('Decryption error:', error);
-    throw new Error('Failed to decrypt data');
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes('ENCRYPTION_SECRET')) {
+        throw new Error('ENCRYPTION_SECRET environment variable is not set. Please configure it in Vercel project settings.');
+      }
+      if (error.message.includes('Unsupported state') || error.message.includes('bad decrypt')) {
+        throw new Error('Failed to decrypt data. The ENCRYPTION_SECRET may be incorrect or the data was encrypted with a different key.');
+      }
+      if (error.message.includes('Invalid encrypted data format')) {
+        throw new Error('Invalid encrypted data format. The data may be corrupted.');
+      }
+    }
+    
+    throw new Error('Failed to decrypt data: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }
 
