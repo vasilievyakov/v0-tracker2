@@ -20,19 +20,19 @@ function extractChannelUsername(url: string): string {
 }
 
 export async function addChannelByUrl(
-  channelUrl: string, 
+  channelUrl: string,
   timeRange: "all" | "year" | "month" | "update" = "month"
 ) {
   const supabase = await createClient();
-  
+
   try {
     console.log("[v0] [SERVER] Starting addChannelByUrl for:", channelUrl, "timeRange:", timeRange);
-    
+
     // Extract username from URL
     const username = extractChannelUsername(channelUrl);
-    
+
     console.log("[v0] [SERVER] Extracted username:", username);
-    
+
     if (!username) {
       console.log("[v0] [SERVER] Invalid username extracted");
       return { success: false, error: "Invalid channel URL format" };
@@ -46,94 +46,49 @@ export async function addChannelByUrl(
 
     console.log("[v0] [SERVER] Existing channel check:", existingChannel ? "found" : "not found");
 
-    // Determine job type
-    const jobType = existingChannel && timeRange === "update" ? "update_channel" : "add_channel";
-
+    // Check if channel exists and we're not updating
     if (existingChannel && timeRange !== "update") {
       console.log("[v0] [SERVER] Channel exists, returning error");
       return { success: false, error: "Channel already exists. Use 'Update' mode to fetch new posts." };
     }
 
-    // Create background job
-    const { data: job, error: jobError } = await supabase
-      .from("jobs")
-      .insert({
-        job_type: jobType,
-        status: "pending",
-        payload: {
-          channelUrl,
-          username,
-          timeRange,
-          channelId: existingChannel?.id || null,
-        },
-      })
-      .select()
-      .single();
-
-    if (jobError) {
-      console.error("[v0] [SERVER] Error creating job:", jobError);
-      return { success: false, error: "Failed to create background job: " + jobError.message };
-    }
-
-    console.log("[v0] [SERVER] Created background job:", job.id);
+    // Process channel immediately instead of creating background job
+    const result = await processChannelDirectly({
+      username,
+      timeRange,
+      channelId: existingChannel?.id,
+      jobType: existingChannel && timeRange === "update" ? "update_channel" : "add_channel"
+    });
 
     revalidatePath("/");
-    return { 
-      success: true,
-      message: "Channel processing started. The data will be available shortly.",
-      jobId: job.id,
-    };
+    return result;
   } catch (error) {
     console.error("[v0] [SERVER] Error in addChannelByUrl:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Unknown error occurred" 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred"
     };
   }
 }
 
-// Process a background job (called by cron job)
-export async function processJob(jobId: string) {
+// Process channel directly (synchronous processing)
+async function processChannelDirectly(params: {
+  username: string;
+  timeRange: "all" | "year" | "month" | "update";
+  channelId?: string;
+  jobType: "add_channel" | "update_channel";
+}) {
   const supabase = await createClient();
-  
+  const { username, timeRange, channelId, jobType } = params;
+
   try {
-    // Get job
-    const { data: job, error: jobFetchError } = await supabase
-      .from("jobs")
-      .select("*")
-      .eq("id", jobId)
-      .eq("status", "pending")
-      .maybeSingle();
-
-    if (jobFetchError || !job) {
-      console.error("[v0] [CRON] Job not found or already processed:", jobId);
-      return { success: false, error: "Job not found" };
-    }
-
-    // Update job status to processing
-    await supabase
-      .from("jobs")
-      .update({
-        status: "processing",
-        started_at: new Date().toISOString(),
-        attempts: (job.attempts || 0) + 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", jobId);
-
-    const { username, timeRange, channelId } = job.payload as {
-      username: string;
-      timeRange: "all" | "year" | "month" | "update";
-      channelId?: string;
-    };
-
     // Import telegram client function
     const { fetchChannelData } = await import("@/lib/telegram-client");
-    
+
     // Fetch channel data using Telegram API
     const channelData = await fetchChannelData(username, timeRange);
 
-    if (job.job_type === "update_channel" && channelId) {
+    if (jobType === "update_channel" && channelId) {
       // Update existing channel
       const { data: existingPosts } = await supabase
         .from("posts")
@@ -172,19 +127,11 @@ export async function processJob(jobId: string) {
         }
       }
 
-      // Update job as completed
-      await supabase
-        .from("jobs")
-        .update({
-          status: "completed",
-          result: { postsAdded: newPosts.length },
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", jobId);
-
-      revalidatePath("/");
-      return { success: true, postsAdded: newPosts.length };
+      return {
+        success: true,
+        message: `Channel updated successfully. Added ${newPosts.length} new posts.`,
+        postsAdded: newPosts.length
+      };
     } else {
       // Add new channel
       const { data: channel, error: channelError } = await supabase
@@ -228,56 +175,27 @@ export async function processJob(jobId: string) {
           .insert(postsToInsert);
 
         if (postsError) {
-          console.error("[v0] [CRON] Error inserting posts:", postsError);
+          console.error("[v0] [SYNC] Error inserting posts:", postsError);
           // Don't fail the whole operation
         }
       }
 
-      // Update job as completed
-      await supabase
-        .from("jobs")
-        .update({
-          status: "completed",
-          result: { channelId: channel.id, postsAdded: channelData.posts.length },
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", jobId);
-
-      revalidatePath("/");
-      return { success: true, channelId: channel.id, postsAdded: channelData.posts.length };
+      return {
+        success: true,
+        message: `Channel added successfully with ${channelData.posts.length} posts.`,
+        channelId: channel.id,
+        postsAdded: channelData.posts.length
+      };
     }
   } catch (error) {
-    console.error("[v0] [CRON] Error processing job:", error);
-    
-    // Update job as failed
-    const supabase = await createClient();
-    const { data: job } = await supabase
-      .from("jobs")
-      .select("attempts, max_attempts")
-      .eq("id", jobId)
-      .maybeSingle();
-
-    const attempts = (job?.attempts || 0) + 1;
-    const maxAttempts = job?.max_attempts || 3;
-    const status = attempts >= maxAttempts ? "failed" : "pending";
-
-    await supabase
-      .from("jobs")
-      .update({
-        status,
-        error_message: error instanceof Error ? error.message : "Unknown error",
-        attempts,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", jobId);
-
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Unknown error occurred" 
+    console.error("[v0] [SYNC] Error processing channel:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred"
     };
   }
 }
+
 
 export async function saveApiSettings(apiId: string, apiHash: string) {
   const supabase = await createClient();
